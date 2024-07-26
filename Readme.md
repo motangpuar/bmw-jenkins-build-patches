@@ -4,7 +4,6 @@
 
 Pipeline scripts to automate the build process.
 
-![Parameterized Build](assets/build_param.png)
 
 - `REGISTRY`: Image registry where you put your docker images.
 - `REGISTRY_USERNAME`:  Username for the image registry.
@@ -15,6 +14,7 @@ Pipeline scripts to automate the build process.
 - `BUILD_PATCH`: default value will be`false` provide URL to your custom script to override it.
 - `REPO` : Code repository of the project.
 
+![Parameterized Build](assets/build_param.png)
 
 ## Dockerfile  
 

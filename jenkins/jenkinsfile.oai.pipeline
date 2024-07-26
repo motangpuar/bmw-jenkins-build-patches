@@ -52,7 +52,7 @@ pipeline {
         script {
             if (BUILD_PATCH_URL != "false" ) {
                 echo "Remote build path"
-                sh "rm docker/Dockerfile.patch"
+                sh "rm docker/Dockerfile.patch || true"
                 sh "curl $BUILD_PATCH_URL -o docker/Dockerfile.patch"
                 sh "podman build -t $NAME_BUILD_IMAGE -f docker/Dockerfile.patch ."
             } else {
