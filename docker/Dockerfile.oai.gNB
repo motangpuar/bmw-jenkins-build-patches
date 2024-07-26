@@ -1,0 +1,17 @@
+FROM ran-base:latest as ran-build
+
+RUN rm -Rf /oai-ran
+
+WORKDIR /
+
+COPY ./osc_odu_high .
+
+WORKDIR /oai-ran
+COPY . .
+
+# build all targets so final targets can be created afterwards
+RUN /bin/sh oaienv && \
+    cd cmake_targets && \
+    mkdir -p log && \
+    ./build_oai -I -c -C && \
+    ./build_oai --gNB --nrUE -w SIMU
