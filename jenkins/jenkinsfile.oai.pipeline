@@ -96,7 +96,7 @@ pipeline {
     }
     stage('Remove Unused docker image') {
       steps{
-        sh "sudo podman system prune -f"
+        sh "podman system prune -f"
       }
     }
 
@@ -105,13 +105,13 @@ pipeline {
         success {
             // Additional steps to perform on success
             echo 'Build and push successful!'
-            sh "sudo podman system prune -f"
+            sh "podman system prune -f"
         }
 
         failure {
             // Additional steps to perform on failure
             echo 'Build or push failed!'
-            sh "sudo podman system prune -f"
+            sh "podman system prune -f"
         }
     }
        // Will run on the slave with name or tag specialSlave
