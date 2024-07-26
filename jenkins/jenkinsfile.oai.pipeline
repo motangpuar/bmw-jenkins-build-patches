@@ -1,16 +1,17 @@
 pipeline {
   environment {
 
-    //REGISTRY='quay.bmw.lab'
+    //REGISTRY='$REGISTRY'
     //QUAY_USER='infidel'
 
-    QUAY_REPO="$REGISTRY/$QUAY_USER"
+    QUAY_REPO="$REGISTRY/$REGISTRY_USERNAME"
+
     NAME_BASE_IMAGE = "ran-base"
     NAME_BUILD_IMAGE = "ran-build"
     NAME_GNB_IMAGE = "oai-gnb"
 
     //TAG="latest"
-
+    
   }
   //agent {label "jenkins-agent-01"}
   agent any
@@ -39,7 +40,7 @@ pipeline {
     stage('Pull Base Image') {
       steps{
         script {
-          sh "podman pull --tls-verify=false quay.bmw.lab/infidel/ran-base:latest"
+          sh "podman pull --tls-verify=false $REGISTRY/$REGISTRY_USERNAME/ran-base:latest"
           sh "podman tag $QUAY_REPO/$NAME_BASE_IMAGE:$TAG $NAME_BASE_IMAGE"
         }
       }
@@ -49,8 +50,15 @@ pipeline {
     stage('Building Build Image') {
       steps{
         script {
-          sh "podman build -t $NAME_BUILD_IMAGE -f docker/Dockerfile.build.ubuntu20 ."
-          sh "podman tag $NAME_BUILD_IMAGE $QUAY_REPO/$NAME_BUILD_IMAGE:$TAG"
+            if (BUILD_PATCH_URL != "false" ) {
+                sh "rm dokcer/Dockerfile.patch"
+                sh "curl $BUILD_PATCH_URL -o docker/Dockerfile.patch"
+                sh "podman build -t $NAME_BUILD_IMAGE -f docker/Dockerfile.patch ."
+            } else {
+                echo "Local file path"
+                sh "podman build -t $NAME_BUILD_IMAGE -f docker/Dockerfile.ubuntu20 ."
+            }
+            sh "podman tag $NAME_BUILD_IMAGE $QUAY_REPO/$NAME_BUILD_IMAGE:$TAG"
         }
       }
     }
@@ -69,7 +77,7 @@ pipeline {
     stage('LOGIN to Registry') {
         steps {
             script {
-                sh 'podman login --tls-verify=false -u="$uname-pass-quay-robot-infidel" -p="$quay-robot-infidel" $REGISTRY'
+                sh 'podman login --tls-verify=false -u="$REGISTRY_ROBOT_USERNAME" -p="$REGISTRY_KEY" $REGISTRY'
             }
         }
     }
@@ -83,6 +91,11 @@ pipeline {
             //sh "podman push --tls-verify=false $QUAY_REPO/$NAME_BUILD_IMAGE:$TAG"
             sh "podman push --tls-verify=false $QUAY_REPO/$NAME_GNB_IMAGE:$TAG"
         }
+      }
+    }
+    stage('Remove Unused docker image') {
+      steps{
+        sh "sudo podman system prune -f"
       }
     }
 
