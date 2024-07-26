@@ -57,7 +57,7 @@ pipeline {
                 sh "podman build -t $NAME_BUILD_IMAGE -f docker/Dockerfile.patch ."
             } else {
                 echo "Local file path"
-                sh "podman build -t $NAME_BUILD_IMAGE -f docker/Dockerfile.ubuntu20 ."
+                sh "podman build -t $NAME_BUILD_IMAGE -f docker/Dockerfile.build.ubuntu20 ."
             }
             sh "podman tag $NAME_BUILD_IMAGE $QUAY_REPO/$NAME_BUILD_IMAGE:$TAG"
         }
