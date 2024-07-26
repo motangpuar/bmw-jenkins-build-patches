@@ -11,5 +11,5 @@ RUN /bin/sh oaienv && \
     mkdir -p log && \
     ./build_oai -I -c -C && \
     ./build_oai -c --ninja --gNB --nrUE \
-        --t Ethernet \
+        -t Ethernet \
         --build-lib "telnetsrv enbscope uescope nrscope nrqtscope"
