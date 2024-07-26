@@ -1,0 +1,22 @@
+FROM ran-base:latest as ran-build
+
+RUN rm -Rf /oai-ran
+
+WORKDIR /oai-ran
+COPY . .
+
+# Add "Tini - A tiny but valid init for containers", https://github.com/krallin/tini
+# it will be copied into target containers, to print exit numbers and handle signals properly
+ENV TINI_VERSION v0.19.0
+ADD https://github.com/krallin/tini/releases/download/${TINI_VERSION}/tini /tini
+RUN chmod +x /tini
+
+
+# build all targets so final targets can be created afterwards
+RUN /bin/sh oaienv && \
+    cd cmake_targets && \
+    mkdir -p log && \
+    ./build_oai -I -c -C && \
+    ./build_oai -c --ninja --gNB --nrUE \
+        -w USRP -t Ethernet \
+        --build-lib "telnetsrv enbscope uescope nrscope nrqtscope"
