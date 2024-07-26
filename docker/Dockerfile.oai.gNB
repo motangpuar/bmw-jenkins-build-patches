@@ -10,4 +10,4 @@ RUN /bin/sh oaienv && \
     cd cmake_targets && \
     mkdir -p log && \
     ./build_oai -I -c -C && \
-    ./build_oai --gNB --nrUE -w SIMU
+    ./build_oai -c --ninja --gNB --nrUE

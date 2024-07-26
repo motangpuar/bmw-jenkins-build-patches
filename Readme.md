@@ -4,7 +4,6 @@
 
 Pipeline scripts to automate the build process.
 
-
 - `REGISTRY`: Image registry where you put your docker images.
 - `REGISTRY_USERNAME`:  Username for the image registry.
 - `REGISTRY_ROBOT_USERNAME`: Robot account for the image registry.
