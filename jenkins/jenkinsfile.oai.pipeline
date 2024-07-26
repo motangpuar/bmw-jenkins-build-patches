@@ -1,0 +1,104 @@
+pipeline {
+  environment {
+
+    //REGISTRY='quay.bmw.lab'
+    //QUAY_USER='infidel'
+
+    QUAY_REPO="$REGISTRY/$QUAY_USER"
+    NAME_BASE_IMAGE = "ran-base"
+    NAME_BUILD_IMAGE = "ran-build"
+    NAME_GNB_IMAGE = "oai-gnb"
+
+    //TAG="latest"
+
+  }
+  //agent {label "jenkins-agent-01"}
+  agent any
+  stages {
+    stage('Cloning Git...') {
+      steps {
+        git([url: '$REPO', branch: '$BRANCH'])
+ 
+      }
+    }
+    // --------------------
+    // TODO
+    // 1. Add escape case when the image is available on any of our repo
+    // --------------------
+    //BUILD Base Image
+    // stage('Building Base Image') {
+    //   steps{
+    //     script {
+    //       sh "podman build -t $NAME_BASE_IMAGE -f docker/Dockerfile.base.ubuntu20 ."
+    //       sh "podman tag $NAME_BASE $QUAY_REPO/$NAME_BASE_IMAGE:$TAG"
+    //     }
+    //   }
+    // }
+
+    // PULL Base Image
+    stage('Pull Base Image') {
+      steps{
+        script {
+          sh "podman pull --tls-verify=false quay.bmw.lab/infidel/ran-base:latest"
+          sh "podman tag $QUAY_REPO/$NAME_BASE_IMAGE:$TAG $NAME_BASE_IMAGE"
+        }
+      }
+    }
+
+    //BUILD Build Image
+    stage('Building Build Image') {
+      steps{
+        script {
+          sh "podman build -t $NAME_BUILD_IMAGE -f docker/Dockerfile.build.ubuntu20 ."
+          sh "podman tag $NAME_BUILD_IMAGE $QUAY_REPO/$NAME_BUILD_IMAGE:$TAG"
+        }
+      }
+    }
+
+    //BUILD gNB Image
+    stage('Building gNB Image') {
+      steps{
+        script {
+          sh "podman build -t $NAME_GNB_IMAGE -f docker/Dockerfile.gNB.ubuntu20 ."
+          sh "podman tag $NAME_GNB_IMAGE $QUAY_REPO/$NAME_GNB_IMAGE:$TAG"
+        }
+      }
+    }
+
+    //Login
+    stage('LOGIN to Registry') {
+        steps {
+            script {
+                sh 'podman login --tls-verify=false -u="$uname-pass-quay-robot-infidel" -p="$quay-robot-infidel" $REGISTRY'
+            }
+        }
+    }
+
+    //Push
+    stage('PUSH Image') {
+      steps{
+        script {
+            // Push the Docker image to the container registry
+            //sh "podman push --tls-verify=false $QUAY_REPO/$NAME_BASE_IMAGE:$TAG"
+            //sh "podman push --tls-verify=false $QUAY_REPO/$NAME_BUILD_IMAGE:$TAG"
+            sh "podman push --tls-verify=false $QUAY_REPO/$NAME_GNB_IMAGE:$TAG"
+        }
+      }
+    }
+
+  }
+      post {
+        success {
+            // Additional steps to perform on success
+            echo 'Build and push successful!'
+        }
+
+        failure {
+            // Additional steps to perform on failure
+            echo 'Build or push failed!'
+        }
+    }
+       // Will run on the slave with name or tag specialSlave
+    
+}
+
