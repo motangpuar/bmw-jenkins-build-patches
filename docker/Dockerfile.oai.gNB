@@ -2,10 +2,6 @@ FROM ran-base:latest as ran-build
 
 RUN rm -Rf /oai-ran
 
-WORKDIR /
-
-COPY ./osc_odu_high .
-
 WORKDIR /oai-ran
 COPY . .
 
