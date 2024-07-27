@@ -40,7 +40,7 @@ pipeline {
     stage('Pull Base Image') {
       steps{
         script {
-          sh "podman pull --tls-verify=false $REGISTRY/$REGISTRY_USERNAME/ran-base:latest"
+          sh "podman pull --tls-verify=false $REGISTRY/$REGISTRY_USERNAME/ran-base:ubuntu22"
           sh "podman tag $QUAY_REPO/$NAME_BASE_IMAGE:$TAG $NAME_BASE_IMAGE"
         }
       }
@@ -101,20 +101,20 @@ pipeline {
     }
 
   }
-      post {
-        success {
-            // Additional steps to perform on success
-            echo 'Build and push successful!'
-            sh "podman system prune -f"
-        }
+  post {
+      success {
+          // Additional steps to perform on success
+          echo 'Build and push successful!'
+          sh "podman system prune -f"
+      }
 
-        failure {
-            // Additional steps to perform on failure
-            echo 'Build or push failed!'
-            sh "podman system prune -f"
-        }
-    }
-       // Will run on the slave with name or tag specialSlave
+      failure {
+          // Additional steps to perform on failure
+          echo 'Build or push failed!'
+          sh "podman system prune -f"
+      }
+  }
+     // Will run on the slave with name or tag specialSlave
     
 }
 
