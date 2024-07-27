@@ -40,7 +40,7 @@ pipeline {
     stage('Pull Base Image') {
       steps{
         script {
-          sh "podman pull --tls-verify=false $REGISTRY/$REGISTRY_USERNAME/ran-base:ubuntu22"
+          sh "podman pull --tls-verify=false $REGISTRY/$REGISTRY_USERNAME/ran-base:latest"
           sh "podman tag $QUAY_REPO/$NAME_BASE_IMAGE:$TAG $NAME_BASE_IMAGE"
         }
       }
