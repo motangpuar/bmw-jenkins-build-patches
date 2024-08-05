@@ -78,7 +78,7 @@ pipeline {
     stage('LOGIN to Registry') {
         steps {
             script {
-                sh 'podman login --tls-verify=false -u="$REGISTRY_ROBOT_USERNAME" -p="$REGISTRY_KEY" $REGISTRY'
+                sh 'podman login --tls-verify=false -u="$REGISTRY_ROBOT_USERNAME" -p="$REGISTRY_ROBOT_KEY" $REGISTRY'
             }
         }
     }
