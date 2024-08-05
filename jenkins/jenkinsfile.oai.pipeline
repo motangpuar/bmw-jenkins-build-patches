@@ -19,7 +19,6 @@ pipeline {
     stage('Cloning Git...') {
       steps {
         git([url: '$REPO', branch: '$BRANCH'])
- 
       }
     }
     // --------------------
@@ -35,6 +34,16 @@ pipeline {
     //     }
     //   }
     // }
+
+    //Login
+    stage('Login to Registry') {
+        steps {
+            withCredentials([string(credentialsId: 'REGISTRY_ROBOT_KEY', variable: 'ROBOT_PASS')]) {
+                sh 'podman login --tls-verify=false -u="$REGISTRY_ROBOT_USERNAME" -p="$ROBOT_PASS" $REGISTRY'
+            }
+        }
+    }
+
 
     // PULL Base Image
     stage('Pull Base Image') {
@@ -73,16 +82,6 @@ pipeline {
         }
       }
     }
-
-    //Login
-    stage('LOGIN to Registry') {
-        steps {
-            script {
-                sh 'podman login --tls-verify=false -u="$REGISTRY_ROBOT_USERNAME" -p="$REGISTRY_ROBOT_KEY" $REGISTRY'
-            }
-        }
-    }
-
     //Push
     stage('PUSH Image') {
       steps{
@@ -115,6 +114,5 @@ pipeline {
       }
   }
      // Will run on the slave with name or tag specialSlave
-    
 }
 
