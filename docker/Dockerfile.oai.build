@@ -19,4 +19,4 @@ RUN /bin/sh oaienv && \
     ./build_oai -I -c -C && \
     ./build_oai -c --ninja --gNB --nrUE \
         -w USRP -t Ethernet \
-        --build-lib "telnetsrv enbscope uescope nrscope nrqtscope"
+        --build-lib "telnetsrv"
