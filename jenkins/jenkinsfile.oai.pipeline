@@ -41,6 +41,9 @@ pipeline {
             withCredentials([string(credentialsId: 'REGISTRY_ROBOT_KEY', variable: 'ROBOT_PASS')]) {
                 sh 'podman login --tls-verify=false -u="$REGISTRY_ROBOT_USERNAME" -p="$ROBOT_PASS" $REGISTRY'
             }
+            withCredentials([usernamePassword(credentialsId: 'bmw-quay-infidel', passwordVariable: 'ROBOT_PASS', usernameVariable: 'ROBOT_USERNAME')]) {
+                sh 'podman login --tls-verify=false -u="$ROBOT_USERNAME" -p="$ROBOT_PASS" $REGISTRY'
+            }
         }
     }
 
