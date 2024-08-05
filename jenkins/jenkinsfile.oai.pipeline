@@ -44,7 +44,6 @@ pipeline {
         }
     }
 
-
     // PULL Base Image
     stage('Pull Base Image') {
       steps{
@@ -67,8 +66,10 @@ pipeline {
             } else {
                 echo "Local file path"
                 sh "podman build -t $NAME_BUILD_IMAGE -f docker/Dockerfile.build.ubuntu20 ."
+                sh "podman images"
             }
             sh "podman tag $NAME_BUILD_IMAGE $QUAY_REPO/$NAME_BUILD_IMAGE:$TAG"
+            sh "podman images"
         }
       }
     }
@@ -79,6 +80,7 @@ pipeline {
         script {
           sh "podman build -t $NAME_GNB_IMAGE -f docker/Dockerfile.gNB.ubuntu20 ."
           sh "podman tag $NAME_GNB_IMAGE $QUAY_REPO/$NAME_GNB_IMAGE:$TAG"
+          sh "podman images"
         }
       }
     }
