@@ -14,7 +14,7 @@ RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install --yes \
         software-properties-common \
         procps \
-        libssl3-dev \
+        libssl-dev \
         libsctp1 \
         libboost-chrono1.71.0 \
         libboost-date-time1.71.0 \
