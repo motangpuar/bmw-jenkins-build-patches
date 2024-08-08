@@ -14,13 +14,7 @@ pipeline {
     
   }
 
-  agent {
-      if (NODE_SELECTOR != "any" ) {
-          label "$NODE_SELECTOR"
-      } else {
-          label any
-      }
-  }
+  agent { label "$NODE_SELECTOR" }
 
   stages {
     stage('Cloning Git...') {
