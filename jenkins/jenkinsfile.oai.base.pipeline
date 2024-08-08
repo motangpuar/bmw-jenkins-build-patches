@@ -49,8 +49,9 @@ pipeline {
     stage('Build Base Image') {
       steps{
         script {
-            sh "podman build -t $NAME_BASE -f docker/Dockerfile.base.ubuntu20 ."
+            sh "podman build -t $NAME_BASE_IMAGE -f docker/Dockerfile.base.ubuntu20 ."
             sh "podman tag $QUAY_REPO/$NAME_BASE_IMAGE:$TAG $NAME_BASE_IMAGE"
+
         }
       }
     }
