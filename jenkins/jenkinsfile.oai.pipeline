@@ -13,11 +13,15 @@ pipeline {
     //TAG="latest"
     
   }
-  if (NODE_SELECTOR != "any" ) {
-        agent {label "$NODE_SELECTOR"}
-    } else {
-      agent any
+
+  agent {
+      if (NODE_SELECTOR != "any" ) {
+          label "$NODE_SELECTOR"
+      } else {
+          any
+      }
   }
+
   stages {
     stage('Cloning Git...') {
       steps {
