@@ -18,7 +18,7 @@ pipeline {
       if (NODE_SELECTOR != "any" ) {
           label "$NODE_SELECTOR"
       } else {
-          any
+          label any
       }
   }
 
