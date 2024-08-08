@@ -1,0 +1,83 @@
+
+pipeline {
+  environment {
+
+    //REGISTRY='$REGISTRY'
+    //QUAY_USER='infidel'
+
+    QUAY_REPO="$REGISTRY/$REGISTRY_USERNAME"
+
+    NAME_BASE_IMAGE = "ran-base"
+    NAME_BUILD_IMAGE = "ran-build"
+    NAME_GNB_IMAGE = "oai-gnb"
+
+    //TAG="latest"
+    
+  }
+  //agent {label "jenkins-agent-01"}
+  agent any
+  stages {
+    stage('Cloning Git...') {
+      steps {
+        git([url: '$REPO', branch: '$BRANCH'])
+      }
+    }
+    // --------------------
+    // TODO
+    // 1. Add escape case when the image is available on any of our repo
+    // --------------------
+    //BUILD Base Image
+    // stage('Building Base Image') {
+    //   steps{
+    //     script {
+    //       sh "podman build -t $NAME_BASE_IMAGE -f docker/Dockerfile.base.ubuntu20 ."
+    //       sh "podman tag $NAME_BASE $QUAY_REPO/$NAME_BASE_IMAGE:$TAG"
+    //     }
+    //   }
+    // }
+
+    //Login
+    stage('Login to Registry') {
+        steps {
+            withCredentials([usernamePassword(credentialsId: 'bmw-quay-infidel', passwordVariable: 'ROBOT_PASS', usernameVariable: 'ROBOT_USERNAME')]) {
+                sh 'podman login --tls-verify=false -u="$ROBOT_USERNAME" -p="$ROBOT_PASS" $REGISTRY'
+            }
+        }
+    }
+
+    // PULL Base Image
+    stage('Build Base Image') {
+      steps{
+        script {
+            sh "podman build -t $NAME_BASE -f docker/Dockerfile.base.ubuntu20 ."
+            sh "podman tag $QUAY_REPO/$NAME_BASE_IMAGE:$TAG $NAME_BASE_IMAGE"
+        }
+      }
+    }
+
+    //Push
+    stage('PUSH Image') {
+      steps{
+        script {
+            // Push the Docker image to the container registry
+            sh "podman push --tls-verify=false $QUAY_REPO/$NAME_BASE_IMAGE:$TAG"
+        }
+      }
+    }
+  }
+  post {
+      success {
+          // Additional steps to perform on success
+          echo 'Build and push successful!'
+          sh "podman system prune -f"
+      }
+
+      failure {
+          // Additional steps to perform on failure
+          echo 'Build or push failed!'
+          sh "podman system prune -f"
+      }
+  }
+     // Will run on the slave with name or tag specialSlave
+}
+
