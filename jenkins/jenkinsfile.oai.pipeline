@@ -13,14 +13,18 @@ pipeline {
     //TAG="latest"
     
   }
-  //agent {label "jenkins-agent-01"}
-  agent any
+  if (NODE_SELECTOR != "any" ) {
+        agent {label "$NODE_SELECTOR"}
+    } else {
+      agent any
+  }
   stages {
     stage('Cloning Git...') {
       steps {
         git([url: '$REPO', branch: '$BRANCH'])
       }
     }
+
     // --------------------
     // TODO
     // 1. Add escape case when the image is available on any of our repo
