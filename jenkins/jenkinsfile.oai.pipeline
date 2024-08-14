@@ -8,7 +8,8 @@ pipeline {
 
     NAME_BASE_IMAGE = "ran-base"
     NAME_BUILD_IMAGE = "ran-build"
-    NAME_GNB_IMAGE = "oai-gnb"
+    //NAME_TARGET_IMAGE = "oai-gnb"
+    NAME_TARGET_IMAGE = "$TARGET_IMAGE"
 
     //TAG="latest"
     
@@ -76,19 +77,19 @@ pipeline {
     }
 
     //BUILD gNB Image
-    stage('Building gNB Image') {
+    stage('Building gNB/UE Image') {
       steps{
         script {
             if (GNB_PATCH_URL != "false" ) {
                 echo "Remote build path"
                 sh "rm docker/Dockerfile.patch.gNB || true"
                 sh "curl $GNB_PATCH_URL -o docker/Dockerfile.patch.gNB"
-                sh "podman build -t $NAME_GNB_IMAGE -f docker/Dockerfile.patch.gNB ."
+                sh "podman build -t $NAME_TARGET_IMAGE -f docker/Dockerfile.patch.gNB ."
             } else {
                 echo "Local file path"
-                sh "podman build -t $NAME_GNB_IMAGE -f docker/Dockerfile.gNB.ubuntu20 ."
+                sh "podman build -t $NAME_TARGET_IMAGE -f docker/Dockerfile.gNB.ubuntu20 ."
             }
-            sh "podman tag $NAME_GNB_IMAGE $QUAY_REPO/$NAME_GNB_IMAGE:$TAG"
+            sh "podman tag $NAME_TARGET_IMAGE $QUAY_REPO/$NAME_TARGET_IMAGE:$TAG"
             sh "podman images"
         }
       }
@@ -98,7 +99,7 @@ pipeline {
       steps{
         script {
             // Push the Docker image to the container registry
-            sh "podman push --tls-verify=false $QUAY_REPO/$NAME_GNB_IMAGE:$TAG"
+            sh "podman push --tls-verify=false $QUAY_REPO/$NAME_TARGET_IMAGE:$TAG"
         }
       }
     }

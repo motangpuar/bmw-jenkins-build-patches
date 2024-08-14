@@ -15,6 +15,12 @@ Pipeline scripts to automate the build process.
 
 ![Parameterized Build](assets/build_param.png)
 
-## Dockerfile  
+## Dockerfile (Patches)
 
-Overwrite dockerfile used to build OAI or OSC.
+- Overwrite dockerfile used to build OAI or OSC.
+- Modify existing dockerfiles available on the repo.
+
+## Jenkins Pipeline
+
+- Build pipelines
+
