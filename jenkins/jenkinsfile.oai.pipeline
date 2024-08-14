@@ -98,8 +98,12 @@ pipeline {
     stage('PUSH Image') {
       steps{
         script {
+            echo "Publishing Build Image"
             // Push the Docker image to the container registry
             sh "podman push --tls-verify=false $QUAY_REPO/$NAME_TARGET_IMAGE:$TAG"
+            if (PUBLISH_BUILD_IMAGE == "true" ) {
+                sh "podman push --tls-verify=false $QUAY_REPO/$NAME_BUILD_IMAGE:$TAG"
+            }        
         }
       }
     }
@@ -108,7 +112,6 @@ pipeline {
         sh "podman system prune -f"
       }
     }
-
   }
   post {
       success {
@@ -123,6 +126,5 @@ pipeline {
           sh "podman system prune -f"
       }
   }
-     // Will run on the slave with name or tag specialSlave
 }
 
