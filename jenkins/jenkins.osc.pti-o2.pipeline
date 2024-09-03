@@ -12,12 +12,9 @@ pipeline {
     //TAG="latest"
     
   }
-  //agent {label "jenkins-agent-01"}
-  if (NODE_SELECTOR != "any" ) {
-        agent {label "$NODE_SELECTOR"}
-    } else {
-      agent any
-  }
+
+  agent { label "$NODE_SELECTOR" }
+
   stages {
     stage('Cloning Git...') {
       steps {
