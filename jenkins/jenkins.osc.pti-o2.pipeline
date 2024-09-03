@@ -34,6 +34,7 @@ pipeline {
       steps{
         // Push the Docker image to the container registry
         withEnv(['PATH+EXTRA=/usr/sbin:/usr/bin:/sbin:/bin']) {  
+
             sh '''#!/bin/bash
 
                     echo "Build OSC PTI O2"
@@ -46,8 +47,10 @@ pipeline {
                     git clone --depth 1 --branch r/stx.7.0 https://opendev.org/starlingx/fault.git
                     cd config
                     git checkout bca406d1
-                    patch -p1 < ../../cgtsclient-insecure.patch
+                    #patch -p1 < ../../cgtsclient-insecure.patch
             '''
+
+            sh "cd temp/config && patch -p1 < ../../cgtsclient-insecure.patch"
             sh "podman-compose build"
             sh "podman tag $NAME_TARGET_IMAGE $QUAY_REPO/$NAME_TARGET_IMAGE:$TAG"
 
