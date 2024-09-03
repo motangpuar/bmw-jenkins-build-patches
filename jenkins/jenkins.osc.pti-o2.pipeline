@@ -1,0 +1,85 @@
+
+pipeline {
+  environment {
+
+    //REGISTRY='$REGISTRY'
+    //QUAY_USER='infidel'
+
+    QUAY_REPO="$REGISTRY/$REGISTRY_USERNAME"
+
+    NAME_TARGET_IMAGE = "$TARGET_IMAGE"
+
+    //TAG="latest"
+    
+  }
+  //agent {label "jenkins-agent-01"}
+  if (NODE_SELECTOR != "any" ) {
+        agent {label "$NODE_SELECTOR"}
+    } else {
+      agent any
+  }
+  stages {
+    stage('Cloning Git...') {
+      steps {
+        git([url: '$REPO', branch: '$BRANCH'])
+      }
+    }
+    //Login
+    stage('Login to Registry') {
+        steps {
+            withCredentials([usernamePassword(credentialsId: 'bmw-quay-infidel', passwordVariable: 'ROBOT_PASS', usernameVariable: 'ROBOT_USERNAME')]) {
+                sh 'podman login --tls-verify=false -u="$ROBOT_USERNAME" -p="$ROBOT_PASS" $REGISTRY'
+            }
+        }
+    }
+    //Push
+    stage('Build OSC PTI O2') {
+      steps{
+        script {
+            // Push the Docker image to the container registry
+            sh '''#!/bin/bash
+                    echo "Build OSC PTI O2"
+                    rm -rf temp || true
+                    mkdir -p temp
+                    cd temp
+                    git clone --branch r/stx.7.0 https://opendev.org/starlingx/config.git
+                    git clone --branch master https://opendev.org/starlingx/distcloud-client.git
+                    (cd distcloud-client && git reset --hard eb4e7eeeb09bdf2e1b80984b378c5a8ea9930f04)
+                    git clone --depth 1 --branch r/stx.7.0 https://opendev.org/starlingx/fault.git
+                    cd config
+                    git checkout bca406d1
+                    patch -p1 < ../../cgtsclient-insecure.patch
+            '''
+            sh "podman-compose build"
+            sh "podman tag $NAME_TARGET_IMAGE $QUAY_REPO/$NAME_TARGET_IMAGE:$TAG"
+
+        }
+      }
+    }
+
+    //Push
+    stage('PUSH Image') {
+      steps{
+        script {
+            // Push the Docker image to the container registry
+            sh "podman push --tls-verify=false $QUAY_REPO/$NAME_TARGET_IMAGE:$TAG"
+        }
+      }
+    }
+  }
+  post {
+      success {
+          // Additional steps to perform on success
+          echo 'Build and push successful!'
+          sh "podman system prune -f"
+      }
+
+      failure {
+          // Additional steps to perform on failure
+          echo 'Build or push failed!'
+          sh "podman system prune -f"
+      }
+  }
+     // Will run on the slave with name or tag specialSlave
+}
+
