@@ -89,18 +89,36 @@ pipeline {
         }
        
         //Add logic that pull if registry is specified do something
-        stage('Pull or Build base_image') {
+        stage('Test Pull base_image') {
             steps {
                 script {
-                    if (BASE_IMAGE_URL != "false") {
-                        sh "podman pull $BASE_IMAGE_URL  --tls-verify=false"
-                        sh "podman pull ${QUAY_REGISTRY}/${QUAY_REPO}/ran-base:latest  --tls-verify=false"
-                        sh "podman tag ${QUAY_REGISTRY}/${QUAY_REPO}/ran-base:latest ran-base:latest"
+                    env.IMAGE_AVAILABLE = 'false'
+                    if (BASE_IMAGE_URL) {
+                        try {
+                            sh "podman pull $BASE_IMAGE_URL  --tls-verify=false"
+                            sh "podman pull ${QUAY_REGISTRY}/${QUAY_REPO}/ran-base:latest  --tls-verify=false"
+                            sh "podman tag ${QUAY_REGISTRY}/${QUAY_REPO}/ran-base:latest ran-base:latest"
+                            echo "Successfully pulled image: ${params.BASE_IMAGE_URL}"
+                        } catch (Exception e) {
+                            echo "Failed to pull image: ${BASE_IMAGE_URL}"
+                            echo "Error: ${e.message}"
+                        }
                         
-                } else {
+                    } else {
+                        echo "No GNB_IMAGE provided" 
                         sh "podman build -t ran-base:latest -f docker/Dockerfile.base.ubuntu20 ."
                     }
                 }
+            }
+        }
+
+        stage('Build base_image') {
+            when {
+                expression { env.IMAGE_AVAILABLE != 'true' }
+            }
+            steps {
+                echo "Build image locally since ${params.BASE_IMAGE_URL ?: 'no image'} is not available" 
+                sh "podman build -t ran-base:latest -f docker/Dockerfile.base.ubuntu20 ."
             }
         }
         
