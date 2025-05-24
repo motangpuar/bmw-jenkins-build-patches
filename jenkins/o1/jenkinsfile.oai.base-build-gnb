@@ -1,0 +1,165 @@
+pipeline {
+    
+    //agent {
+    //    label 'podman'  // Requires a Jenkins agent with Podman installed
+    //}
+    parameters {
+        string(name: 'BRANCH', defaultValue: 'master', description: 'Git branch to checkout')
+        string(name: 'FLAVOR', defaultValue: 'default', description: 'SMO installation flavor')
+        string(name: 'http_proxy', defaultValue: '', description: 'HTTP proxy URL (optional)')
+
+        string(
+            name: "BASE_IMAGE_URL",
+            defaultValue: "quay.bmw.lab/infidel/ran-base:latest",
+            description: "Docker build patch"
+        )
+        string(
+            name: "BUILD_PATCH_URL",
+            defaultValue: "https://raw.githubusercontent.com/motangpuar/bmw-jenkins-build-patches/refs/heads/master/docker/Dockerfile.build.ubuntu20",
+            description: "Docker build patch"
+        )
+        string(
+            name: "GNB_PATCH_URL",
+            defaultValue: "",
+            description: "Docker build patch"
+        )
+        choice(
+            name: 'NODE_SELECTOR',
+            choices: ['jenkins-agent-01', 'jenkins-agent-00'],
+            description: 'Node Where this task should run'
+        )
+    } 
+
+    //agent { label 'jenkins-agent-01'}
+    agent { label "$NODE_SELECTOR" }
+    
+    environment {
+        // GitHub settings
+        GITHUB_CREDENTIALS_ID = 'github'  // Create this credential in Jenkins
+        GITHUB_REPO_URL = 'https://github.com/bmw-ece-ntust/OAI-telnet-O1-gNB.git'  // Replace with your actual repo URL
+        GITHUB_BRANCH = 'main'  // Replace with your branch
+        
+        // Quay registry settings
+        QUAY_REGISTRY = 'quay.bmw.lab'
+        QUAY_CREDENTIALS_ID = 'admin_account'  // Create this credential in Jenkins
+        QUAY_REPO = 'infidel'
+        NAME_BASE_IMAGE = 'oai-o1-base'
+        NAME_GNB_IMAGE = 'oai-o1-gnb'
+        NAME_BUILD_IMAGE = 'ran-build'
+        NAME_TARGET_IMAGE = 'ran-target'
+        
+    }
+    
+    stages {
+        stage('Clone Repository') {
+            steps {
+                // Clean workspace before cloning
+                cleanWs()
+                
+                // Clone the private repository using credentials
+                withCredentials([string(credentialsId: "${GITHUB_CREDENTIALS_ID}", variable: 'GITHUB_TOKEN')]) {
+                    sh """
+                        git config --global credential.helper store
+                        echo "https://\${GITHUB_TOKEN}:x-oauth-basic@github.com" > ~/.git-credentials
+                        git clone ${GITHUB_REPO_URL} .
+                        git checkout ${GITHUB_BRANCH}
+                        git submodule init
+                        git submodule update
+                    """
+                }
+                
+                // Clean up credentials for security
+                sh """
+                    git config --global --unset credential.helper
+                    rm -f ~/.git-credentials
+                """
+            }
+        }
+        
+        stage('Login to Registry') {
+            steps {
+                withCredentials([usernamePassword(
+                    credentialsId: "${QUAY_CREDENTIALS_ID}",
+                    usernameVariable: 'REGISTRY_USER',
+                    passwordVariable: 'REGISTRY_PASSWORD'
+                )]) {
+                    sh "podman login --tls-verify=false -u=${REGISTRY_USER} -p=${REGISTRY_PASSWORD} ${QUAY_REGISTRY}"
+                }
+            }
+        }
+       
+        //Add logic that pull if registry is specified do something
+        stage('Pull or Build base_image') {
+            steps {
+                script {
+                    if (BASE_IMAGE_URL != "false") {
+                        sh "podman pull $BASE_IMAGE_URL  --tls-verify=false"
+                        sh "podman pull ${QUAY_REGISTRY}/${QUAY_REPO}/ran-base:latest  --tls-verify=false"
+                        sh "podman tag ${QUAY_REGISTRY}/${QUAY_REPO}/ran-base:latest ran-base:latest"
+                        
+                } else {
+                        sh "podman build -t ran-base:latest -f docker/Dockerfile.base.ubuntu20 ."
+                    }
+                }
+            }
+        }
+        
+        stage('Build build_image') {
+            steps {
+                script {
+                    if (BUILD_PATCH_URL != "false") {
+                    // Build the build image
+                    sh "curl -o docker/Dockerfile.build.patch ${BUILD_PATCH_URL}"
+                    sh "podman build -t ${NAME_BUILD_IMAGE} -f docker/Dockerfile.build.patch ."
+                    
+                    // Build the target image
+                    sh "podman build -t ${NAME_TARGET_IMAGE} -f docker/Dockerfile.gNB.ubuntu20 ."
+                    } else {
+                    sh "podman build -t ${NAME_BUILD_IMAGE} -f docker/Dockerfile.build.ubuntu20 ."
+                    }
+                }
+            }
+        }
+
+        stage('Build gnb_image') {
+            steps {
+                script {
+                    if (GNB_PATCH_URL != "false") {
+                    // Build the build image
+                    sh "curl -o docker/Dockerfile.build.patch ${BUILD_PATCH_URL}"
+                    sh "podman build -t ${NAME_BUILD_IMAGE} -f docker/Dockerfile.build.patch ."
+                    
+                    // Build the target image
+                    sh "podman build -t ${NAME_TARGET_IMAGE} -f docker/Dockerfile.gNB.ubuntu20 ."
+                    } else {
+                    sh "podman build -t ${NAME_BUILD_IMAGE} -f docker/Dockerfile.build.ubuntu20 ."
+                    }
+                }
+            }
+        }
+        
+        stage('Tag and Push') {
+            steps {
+                // Tag the adapter image for the registry
+                sh "podman tag ${NAME_TARGET_IMAGE}:latest ${QUAY_REGISTRY}/${QUAY_REPO}/${NAME_GNB_IMAGE}:latest"
+                
+                // Push the image to the registry
+                sh "podman push ${QUAY_REGISTRY}/${QUAY_REPO}/${NAME_GNB_IMAGE}:latest --tls-verify=false"
+            }
+        }
+    }
+    
+    post {
+        always {
+            // Clean up after the build
+            sh "podman logout ${QUAY_REGISTRY}"
+            sh "podman system prune -f"
+        }
+        success {
+            echo "Build and push of ${NAME_GNB_IMAGE} completed successfully!"
+        }
+        failure {
+            echo "Build failed! Check the logs for details."
+        }
+    }
+}

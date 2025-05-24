@@ -1,0 +1,195 @@
+pipeline {
+    
+    agent {
+        kubernetes {
+            label 'smo-pod'
+            yaml '''
+apiVersion: v1
+kind: Pod
+spec:
+  hostAliases:
+  - ip: "10.1.0.42"
+    hostnames:
+    - "jenkins.bmw.lab"
+  containers:
+  - name: jnlp
+    image: quay.bmw.lab/infidel/jenkins-inbound-agent:latest
+  - name: jenkins-ubuntu
+    image: ubuntu:20.04
+    command:
+    - sleep
+    args: 
+    - 99d
+    resources:
+      requests:
+        memory: "2Gi"
+        cpu: "1000m"
+      limits:
+        memory: "4Gi"
+        cpu: "2000m"
+'''
+        }
+    }
+    
+    //options {
+    //    lock('smo')
+    //    timeout(time: 2, unit: 'HOURS')
+    //    timestamps()
+    //    buildDiscarder(logRotator(numToKeepStr: '10'))
+    //}
+    
+    parameters {
+        string(name: 'BRANCH', defaultValue: 'master', description: 'Git branch to checkout')
+        string(name: 'FLAVOR', defaultValue: 'default', description: 'SMO installation flavor')
+        string(name: 'http_proxy', defaultValue: '', description: 'HTTP proxy URL (optional)')
+    }
+    
+    environment {
+        // Define any global environment variables here
+        DEBIAN_FRONTEND = 'noninteractive'
+        TZ = 'Etc/UTC'
+    }
+    
+    stages {
+        stage('Checkout') {
+            steps {
+                echo 'Checking out source code...'
+                checkout([$class: 'GitSCM', 
+                    userRemoteConfigs: [[url: 'https://gerrit.o-ran-sc.org/r/it/dep']], 
+                    branches: [[name: "${params.BRANCH}"]], 
+                    extensions: [[$class: 'SubmoduleOption', recursiveSubmodules: true]]
+                ])
+            }
+        }
+        
+        stage('Configure Proxy') {
+            when {
+                expression { params.http_proxy != '' }
+            }
+            steps {
+                container('jenkins-ubuntu') {
+                    script {
+                        echo 'Configuring proxy settings...'
+                        
+                        sh """
+                            echo 'Acquire::http::Proxy "${params.http_proxy}";' > /etc/apt/apt.conf.d/proxy.conf
+                            echo 'Acquire::https::Proxy "${params.http_proxy}";' >> /etc/apt/apt.conf.d/proxy.conf
+                            cat /etc/apt/apt.conf.d/proxy.conf
+                            
+                            echo "http_proxy = ${params.http_proxy}" > ~/.wgetrc
+                            echo "https_proxy = ${params.http_proxy}" >> ~/.wgetrc
+                            cat ~/.wgetrc
+                        """
+                        
+                        // Set proxy environment variable for use in later stages
+                        env.PROXIES = "HTTPS_PROXY=${params.http_proxy} HTTP_PROXY=${params.http_proxy}"
+                    }
+                }
+            }
+        }
+        
+        stage('Setup Tools') {
+            steps {
+                container('jenkins-ubuntu') {
+                    script {
+                        echo 'Installing required tools...'
+                        
+                        sh '''
+                            apt-get update -y
+                            apt-get -y install tzdata git wget sudo
+                        '''
+                        
+                        sh '''
+                            wget https://dl.k8s.io/release/v1.22.0/bin/linux/amd64/kubectl
+                            mv kubectl /usr/bin/
+                            chmod a+x /usr/bin/kubectl
+                            kubectl version --client
+                        '''
+                        
+                        // Run setup scripts with or without proxy
+                        def proxyPrefix = env.PROXIES ?: ''
+                        
+                        sh "${proxyPrefix} ./smo-install/scripts/layer-0/0-setup-tests-env.sh"
+                        sh "${proxyPrefix} ./smo-install/scripts/layer-0/0-setup-charts-museum.sh"
+                        sh "${proxyPrefix} ./smo-install/scripts/layer-0/0-setup-helm3.sh"
+                    }
+                }
+            }
+        }
+        
+        stage('Build Charts') {
+            parallel {
+                stage('Build ONAP Charts') {
+                    steps {
+                        container('jenkins-ubuntu') {
+                            script {
+                                echo 'Building ONAP charts...'
+                                def proxyPrefix = env.PROXIES ?: ''
+                                sh "${proxyPrefix} ./smo-install/scripts/sub-scripts/build-onap.sh"
+                            }
+                        }
+                    }
+                }
+                
+                stage('Build ORAN Charts') {
+                    steps {
+                        container('jenkins-ubuntu') {
+                            script {
+                                echo 'Building ORAN charts...'
+                                def proxyPrefix = env.PROXIES ?: ''
+                                sh "${proxyPrefix} ./smo-install/scripts/sub-scripts/build-oran.sh"
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        
+        stage('Build Test Charts') {
+            steps {
+                container('jenkins-ubuntu') {
+                    script {
+                        echo 'Building test charts...'
+                        def proxyPrefix = env.PROXIES ?: ''
+                        sh "${proxyPrefix} ./smo-install/scripts/sub-scripts/build-tests.sh"
+                    }
+                }
+            }
+        }
+        
+        stage('Install SMO') {
+            steps {
+                container('jenkins-ubuntu') {
+                    script {
+                        echo "Starting SMO installation with flavor: ${params.FLAVOR}"
+                        sh "./smo-install/scripts/layer-2/2-install-oran.sh ${params.FLAVOR}"
+                    }
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            container('jenkins-ubuntu') {
+                script {
+                    echo 'Pipeline execution completed'
+                    sh 'printenv | sort'
+                }
+            }
+        }
+        success {
+            echo 'SMO installation completed successfully!'
+        }
+        failure {
+            echo 'SMO installation failed. Please check the logs.'
+        }
+        cleanup {
+            echo 'Cleaning up workspace...'
+            cleanWs()
+        }
+    }
+}    parameters {
+        string(name: 'BRANCH', defaultValue: 'master', description: 'Git branch to checkout')
+
+
