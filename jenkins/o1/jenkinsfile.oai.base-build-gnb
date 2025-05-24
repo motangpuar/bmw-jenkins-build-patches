@@ -99,6 +99,7 @@ pipeline {
                             sh "podman pull ${QUAY_REGISTRY}/${QUAY_REPO}/ran-base:latest  --tls-verify=false"
                             sh "podman tag ${QUAY_REGISTRY}/${QUAY_REPO}/ran-base:latest ran-base:latest"
                             echo "Successfully pulled image: ${params.BASE_IMAGE_URL}"
+                            env.IMAGE_AVAILABLE = 'true'
                         } catch (Exception e) {
                             echo "Failed to pull image: ${BASE_IMAGE_URL}"
                             echo "Error: ${e.message}"
