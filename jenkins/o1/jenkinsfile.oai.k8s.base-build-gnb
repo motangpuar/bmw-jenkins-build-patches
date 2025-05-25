@@ -102,7 +102,7 @@ spec:
         NAME_TARGET_IMAGE = 'ran-target'
 
         BUILD_COMMAND = 'podman' 
-        BUILD_ARGS = "--storage-driver=vfs" 
+        BUILD_ARGS = "--storage-driver=overlay" 
         
     }
     
@@ -151,9 +151,12 @@ EOF
                             # Configure storage
                             cat > ~/.config/containers/storage.conf << 'EOF'
 [storage]
-driver = "vfs"
+driver = "overlay"
 graphroot = "/var/lib/containers/storage"
 runroot = "/tmp/containers"
+
+[storage.options.overlay]
+mountopt = "nodev,metacopy=on"
 EOF
                             cat ~/.config/containers/containers.conf
                             echo "--------------------------------------"
