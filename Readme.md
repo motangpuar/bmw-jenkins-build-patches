@@ -1,6 +1,6 @@
-# Build Patches
+# Jenkins Pipeline
 
-## Jenkins Pipeline
+## Pipeline on Regular Jenkins Agent
 
 Pipeline scripts to automate the build process.
 
@@ -23,4 +23,19 @@ Pipeline scripts to automate the build process.
 ## Jenkins Pipeline
 
 - Build pipelines
+
+
+## Pipeline on K8S Jenkins Agent
+
+- This is insance, we can build images from kubernetes pod.
+- This kind of implementation are located at
+
+```
+#O1 Build
+./jenkins/o1/jenkinsfile.oai.k8s.base-build-gnb 
+
+#SMO Testing
+./jenkins/smo/jenkinsfile.smo-test 
+```
+
 
