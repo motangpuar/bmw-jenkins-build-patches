@@ -163,7 +163,13 @@ driver = "vfs"
 runroot = "/tmp/runtime"
 graphroot = "/home/podman/.local/share/containers/storage"
 EOF
-                            echo "${REGISTRY_PASSWORD}" | $BUILD_COMMAND login --tls-verify=false -u="${REGISTRY_USER}" --password-stdin quay.bmw.lab
+                            cat ~/.config/containers/containers.conf
+                            cat ~/.config/containers/storage.conf
+
+                            echo "${REGISTRY_PASSWORD}" | $BUILD_COMMAND login --tls-verify=false \
+                                --storage-driver=vfs \
+                                -u="${REGISTRY_USER}" \
+                                --password-stdin quay.bmw.lab
                         '''
                     }
                 }
