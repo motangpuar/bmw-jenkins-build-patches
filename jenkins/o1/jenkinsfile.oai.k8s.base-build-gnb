@@ -105,7 +105,7 @@ spec:
         NAME_BUILD_IMAGE = 'ran-build'
         NAME_TARGET_IMAGE = 'ran-target'
 
-        BUILD_COMMAND = 'podman'
+        BUILD_COMMAND = 'podman --storage-driver=vfs --userns=host' 
         
     }
     
@@ -163,7 +163,6 @@ EOF
                             cat ~/.config/containers/storage.conf
 
                             echo "${REGISTRY_PASSWORD}" | $BUILD_COMMAND login --tls-verify=false \
-                                --storage-driver=vfs \
                                 -u="${REGISTRY_USER}" \
                                 --password-stdin quay.bmw.lab
                         '''
@@ -181,7 +180,6 @@ EOF
                         if (BASE_IMAGE_URL) {
                             try {
                                 sh "$BUILD_COMMAND pull $BASE_IMAGE_URL  --tls-verify=false"
-                                sh "$BUILD_COMMAND pull ${QUAY_REGISTRY}/${QUAY_REPO}/ran-base:latest  --tls-verify=false"
                                 sh "$BUILD_COMMAND tag ${QUAY_REGISTRY}/${QUAY_REPO}/ran-base:latest ran-base:latest"
                                 echo "Successfully pulled image: ${params.BASE_IMAGE_URL}"
                                 env.IMAGE_AVAILABLE = 'true'
