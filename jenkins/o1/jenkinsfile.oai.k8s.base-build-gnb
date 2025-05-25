@@ -1,0 +1,259 @@
+pipeline {
+    
+    agent {
+        kubernetes {
+            label 'smo-pod'
+            yaml '''
+apiVersion: v1
+kind: Pod
+spec:
+  hostAliases:
+  - ip: "10.1.0.42"
+    hostnames:
+    - "jenkins.bmw.lab"
+    - "quay.bmw.lab"
+  containers:
+  - name: jnlp
+    image: quay.bmw.lab/infidel/jenkins-inbound-agent:latest
+  - name: podman
+    image: quay.io/podman/stable:latest
+    command:
+    - cat
+    tty: true
+    securityContext:
+      runAsUser: 1000
+      runAsGroup: 1000
+      fsGroup: 1000
+      allowPrivilegeEscalation: false
+      capabilities:
+        add:
+        - SETUID
+        - SETGID
+    env:
+    - name: STORAGE_DRIVER
+      value: "vfs"
+    - name: PODMAN_USERNS
+      value: "keep-id"
+    - name: XDG_RUNTIME_DIR
+      value: "/tmp/runtime"
+    - name: HOME
+      value: "/home/podman"
+    volumeMounts:
+    - name: podman-storage
+      mountPath: /home/podman/.local/share/containers
+    - name: runtime-dir
+      mountPath: /tmp/runtime
+    - name: tmp-dir
+      mountPath: /tmp
+  volumes:
+  - name: podman-storage
+    emptyDir: {}
+  - name: runtime-dir
+    emptyDir: {}
+  - name: tmp-dir
+    emptyDir: {}
+
+'''
+        }
+    }
+
+    //agent {
+    //    label '$BUILD_COMMAND'  // Requires a Jenkins agent with $BUILD_COMMAND installed
+    //}
+
+    parameters {
+        string(name: 'BRANCH', defaultValue: 'master', description: 'Git branch to checkout')
+        string(name: 'FLAVOR', defaultValue: 'default', description: 'SMO installation flavor')
+        string(name: 'http_proxy', defaultValue: '', description: 'HTTP proxy URL (optional)')
+
+        string(
+            name: "BASE_IMAGE_URL",
+            defaultValue: "quay.bmw.lab/infidel/ran-base:latest",
+            description: "Docker build patch"
+        )
+        string(
+            name: "BUILD_PATCH_URL",
+            defaultValue: "https://raw.githubusercontent.com/motangpuar/bmw-jenkins-build-patches/refs/heads/master/docker/Dockerfile.build.ubuntu20",
+            description: "Docker build patch"
+        )
+        string(
+            name: "GNB_PATCH_URL",
+            defaultValue: "",
+            description: "Docker build patch"
+        )
+        choice(
+            name: 'NODE_SELECTOR',
+            choices: ['jenkins-agent-01', 'jenkins-agent-00'],
+            description: 'Node Where this task should run'
+        )
+    } 
+
+    // agent { label 'jenkins-agent-01'}
+    // agent { label "$NODE_SELECTOR" }
+    
+    environment {
+        // GitHub settings
+        GITHUB_CREDENTIALS_ID = 'github'  // Create this credential in Jenkins
+        GITHUB_REPO_URL = 'https://github.com/bmw-ece-ntust/OAI-telnet-O1-gNB.git'  // Replace with your actual repo URL
+        GITHUB_REPO = 'bmw-ece-ntust/OAI-telnet-O1-gNB.git'  // Replace with your actual repo URL
+        GITHUB_BRANCH = 'main'  // Replace with your branch
+        
+        // Quay registry settings
+        QUAY_REGISTRY = 'quay.bmw.lab'
+        QUAY_CREDENTIALS_ID = 'admin_account'  // Create this credential in Jenkins
+        QUAY_REPO = 'infidel'
+        NAME_BASE_IMAGE = 'oai-o1-base'
+        NAME_GNB_IMAGE = 'oai-o1-gnb'
+        NAME_BUILD_IMAGE = 'ran-build'
+        NAME_TARGET_IMAGE = 'ran-target'
+
+        BUILD_COMMAND = 'podman'
+        
+    }
+    
+    stages {
+        stage('Checkout') {
+            steps {
+                withCredentials([string(credentialsId: "${GITHUB_CREDENTIALS_ID}", variable: 'GITHUB_TOKEN')]) {
+                    checkout([
+                        $class: 'GitSCM',
+                        branches: [[name: "*/${GITHUB_BRANCH}"]],
+                        userRemoteConfigs: [[
+                            url: "https://${GITHUB_TOKEN}:x-oauth-basic@github.com/${GITHUB_REPO}",
+                            credentialsId: '' // Empty since we're embedding token in URL
+                        ]],
+                        extensions: [
+                            [$class: 'SubmoduleOption', 
+                             disableSubmodules: true, 
+                             parentCredentials: false, // Set to false since we handle auth manually
+                             recursiveSubmodules: true, 
+                             reference: '', 
+                             trackingSubmodules: false]
+                        ]
+                    ])
+                }
+            }
+        }
+        
+        stage('Login to Registry') {
+            steps {
+                container('podman') {
+                    withCredentials([usernamePassword(
+                        credentialsId: "${QUAY_CREDENTIALS_ID}",
+                        usernameVariable: 'REGISTRY_USER',
+                        passwordVariable: 'REGISTRY_PASSWORD'
+                    )]) {
+                        sh '''
+                            echo "${REGISTRY_PASSWORD}" | $BUILD_COMMAND login --tls-verify=false -u="${REGISTRY_USER}" --password-stdin quay.bmw.lab
+                        '''
+                    }
+                }
+            }
+        }
+       
+        //Add logic that pull if registry is specified do something
+        stage('Test Pull base_image') {
+            steps {
+                container('podman') {
+                    script {
+                        env.IMAGE_AVAILABLE = 'false'
+                        if (BASE_IMAGE_URL) {
+                            try {
+                                sh "$BUILD_COMMAND pull $BASE_IMAGE_URL  --tls-verify=false"
+                                sh "$BUILD_COMMAND pull ${QUAY_REGISTRY}/${QUAY_REPO}/ran-base:latest  --tls-verify=false"
+                                sh "$BUILD_COMMAND tag ${QUAY_REGISTRY}/${QUAY_REPO}/ran-base:latest ran-base:latest"
+                                echo "Successfully pulled image: ${params.BASE_IMAGE_URL}"
+                                env.IMAGE_AVAILABLE = 'true'
+                            } catch (Exception e) {
+                                echo "Failed to pull image: ${BASE_IMAGE_URL}"
+                                echo "Error: ${e.message}"
+                            }
+                            
+                        } else {
+                            echo "No GNB_IMAGE provided" 
+                            sh "$BUILD_COMMAND build -t ran-base:latest -f docker/Dockerfile.base.ubuntu20 ."
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Build base_image') {
+            when {
+                expression { env.IMAGE_AVAILABLE != 'true' }
+            }
+            steps {
+                container('podman') {
+                    echo "Build image locally since ${params.BASE_IMAGE_URL ?: 'no image'} is not available" 
+                    sh "$BUILD_COMMAND build -t ran-base:latest -f docker/Dockerfile.base.ubuntu20 ."
+                }
+            }
+        }
+        
+        stage('Build build_image') {
+            steps {
+                container('podman') {
+                    script {
+                        if (BUILD_PATCH_URL != "false") {
+                        // Build the build image
+                        sh "curl -o docker/Dockerfile.build.patch ${BUILD_PATCH_URL}"
+                        sh "$BUILD_COMMAND build -t ${NAME_BUILD_IMAGE} -f docker/Dockerfile.build.patch ."
+                        
+                        // Build the target image
+                        sh "$BUILD_COMMAND build -t ${NAME_TARGET_IMAGE} -f docker/Dockerfile.gNB.ubuntu20 ."
+                        } else {
+                        sh "$BUILD_COMMAND build -t ${NAME_BUILD_IMAGE} -f docker/Dockerfile.build.ubuntu20 ."
+                        }
+                    }
+                }
+            }
+        }
+
+        stage('Build gnb_image') {
+            steps {
+                container('podman') {
+                    script {
+                        if (GNB_PATCH_URL != "false") {
+                        // Build the build image
+                        sh "curl -o docker/Dockerfile.build.patch ${BUILD_PATCH_URL}"
+                        sh "$BUILD_COMMAND build -t ${NAME_BUILD_IMAGE} -f docker/Dockerfile.build.patch ."
+                        
+                        // Build the target image
+                        sh "$BUILD_COMMAND build -t ${NAME_TARGET_IMAGE} -f docker/Dockerfile.gNB.ubuntu20 ."
+                        } else {
+                        sh "$BUILD_COMMAND build -t ${NAME_BUILD_IMAGE} -f docker/Dockerfile.build.ubuntu20 ."
+                        }
+                    }
+                }
+            }
+        }
+        
+        stage('Tag and Push') {
+            steps {
+                container('podman') {
+                // Tag the adapter image for the registry
+                    sh "$BUILD_COMMAND tag ${NAME_TARGET_IMAGE}:latest ${QUAY_REGISTRY}/${QUAY_REPO}/${NAME_GNB_IMAGE}:latest"
+                    
+                    // Push the image to the registry
+                    sh "$BUILD_COMMAND push ${QUAY_REGISTRY}/${QUAY_REPO}/${NAME_GNB_IMAGE}:latest --tls-verify=false"
+                }
+            }
+        }
+    }
+    
+    post {
+        always {
+            container('podman') {
+                // Clean up after the build
+                sh "$BUILD_COMMAND logout ${QUAY_REGISTRY}"
+                sh "$BUILD_COMMAND system prune -f"
+            }
+        }
+        success {
+            echo "Build and push of ${NAME_GNB_IMAGE} completed successfully!"
+        }
+        failure {
+            echo "Build failed! Check the logs for details."
+        }
+    }
+}
