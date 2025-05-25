@@ -135,7 +135,7 @@ spec:
             }
         }
         
-        stage('Login to Registry') {
+        stage('Setup and Login to Registry') {
             steps {
                 container('podman') {
                     withCredentials([usernamePassword(
@@ -144,6 +144,25 @@ spec:
                         passwordVariable: 'REGISTRY_PASSWORD'
                     )]) {
                         sh '''
+                            # Setup rootless environment
+                            mkdir -p ~/.config/containers ~/.local/share/containers
+                            
+                            # Configure containers.conf for keep-id
+                            cat > ~/.config/containers/containers.conf << 'EOF'
+[containers]
+userns = "keep-id"
+
+[engine]
+cgroup_manager = "cgroupfs"
+EOF
+                            
+                            # Configure storage
+                            cat > ~/.config/containers/storage.conf << 'EOF'
+[storage]
+driver = "vfs"
+runroot = "/tmp/runtime"
+graphroot = "/home/podman/.local/share/containers/storage"
+EOF
                             echo "${REGISTRY_PASSWORD}" | $BUILD_COMMAND login --tls-verify=false -u="${REGISTRY_USER}" --password-stdin quay.bmw.lab
                         '''
                     }
