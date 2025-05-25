@@ -106,7 +106,7 @@ spec:
         NAME_TARGET_IMAGE = 'ran-target'
 
         BUILD_COMMAND = 'podman' 
-        BUILD_ARGS = "--storage-driver=vfs --userns=host" 
+        BUILD_ARGS = "--storage-driver=vfs" 
         
     }
     
