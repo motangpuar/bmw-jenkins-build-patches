@@ -159,7 +159,7 @@ graphroot = "/var/lib/containers/storage"
 runroot = "/tmp/containers"
 EOF
                             cat ~/.config/containers/containers.conf
-                            echo "--------------------------------------
+                            echo "--------------------------------------"
                             cat ~/.config/containers/storage.conf
 
                             echo "${REGISTRY_PASSWORD}" | $BUILD_COMMAND login --tls-verify=false \
