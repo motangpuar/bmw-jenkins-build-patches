@@ -21,12 +21,10 @@ spec:
     - cat
     tty: true
     securityContext:
-      runAsUser: 1000
-      runAsGroup: 1000
-      fsGroup: 1000
-      allowPrivilegeEscalation: false
+      runAsUser: 0
       capabilities:
         add:
+        - SYS_ADMIN
         - SETUID
         - SETGID
     env:
@@ -40,7 +38,7 @@ spec:
       value: "/home/podman"
     volumeMounts:
     - name: podman-storage
-      mountPath: /home/podman/.local/share/containers
+      mountPath: /var/lib/containers
     - name: runtime-dir
       mountPath: /tmp/runtime
     - name: tmp-dir
@@ -150,20 +148,18 @@ spec:
                             # Configure containers.conf for keep-id
                             cat > ~/.config/containers/containers.conf << 'EOF'
 [containers]
-userns = "keep-id"
-
-[engine]
-cgroup_manager = "cgroupfs"
+userns = "host"
 EOF
                             
                             # Configure storage
                             cat > ~/.config/containers/storage.conf << 'EOF'
 [storage]
 driver = "vfs"
-runroot = "/tmp/runtime"
-graphroot = "/home/podman/.local/share/containers/storage"
+graphroot = "/var/lib/containers/storage"
+runroot = "/tmp/containers"
 EOF
                             cat ~/.config/containers/containers.conf
+                            echo "--------------------------------------
                             cat ~/.config/containers/storage.conf
 
                             echo "${REGISTRY_PASSWORD}" | $BUILD_COMMAND login --tls-verify=false \
