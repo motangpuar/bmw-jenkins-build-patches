@@ -56,7 +56,7 @@ spec:
     }
 
     //agent {
-    //    label '$BUILD_COMMAND'  // Requires a Jenkins agent with $BUILD_COMMAND installed
+    //    label '$BUILD_COMMAND $BUILD_ARGS'  // Requires a Jenkins agent with $BUILD_COMMAND $BUILD_ARGS installed
     //}
 
     parameters {
@@ -105,7 +105,8 @@ spec:
         NAME_BUILD_IMAGE = 'ran-build'
         NAME_TARGET_IMAGE = 'ran-target'
 
-        BUILD_COMMAND = 'podman --storage-driver=vfs --userns=host' 
+        BUILD_COMMAND = 'podman' 
+        BUILD_ARGS = "--storage-driver=vfs --userns=host" 
         
     }
     
@@ -163,6 +164,7 @@ EOF
                             cat ~/.config/containers/storage.conf
 
                             echo "${REGISTRY_PASSWORD}" | $BUILD_COMMAND login --tls-verify=false \
+                                --storage-driver=vfs \
                                 -u="${REGISTRY_USER}" \
                                 --password-stdin quay.bmw.lab
                         '''
@@ -179,8 +181,8 @@ EOF
                         env.IMAGE_AVAILABLE = 'false'
                         if (BASE_IMAGE_URL) {
                             try {
-                                sh "$BUILD_COMMAND pull $BASE_IMAGE_URL  --tls-verify=false"
-                                sh "$BUILD_COMMAND tag ${QUAY_REGISTRY}/${QUAY_REPO}/ran-base:latest ran-base:latest"
+                                sh "$BUILD_COMMAND $BUILD_ARGS pull $BASE_IMAGE_URL  --tls-verify=false"
+                                sh "$BUILD_COMMAND $BUILD_ARGS tag ${QUAY_REGISTRY}/${QUAY_REPO}/ran-base:latest ran-base:latest"
                                 echo "Successfully pulled image: ${params.BASE_IMAGE_URL}"
                                 env.IMAGE_AVAILABLE = 'true'
                             } catch (Exception e) {
@@ -190,7 +192,7 @@ EOF
                             
                         } else {
                             echo "No GNB_IMAGE provided" 
-                            sh "$BUILD_COMMAND build -t ran-base:latest -f docker/Dockerfile.base.ubuntu20 ."
+                            sh "$BUILD_COMMAND $BUILD_ARGS build -t ran-base:latest -f docker/Dockerfile.base.ubuntu20 ."
                         }
                     }
                 }
@@ -204,7 +206,7 @@ EOF
             steps {
                 container('podman') {
                     echo "Build image locally since ${params.BASE_IMAGE_URL ?: 'no image'} is not available" 
-                    sh "$BUILD_COMMAND build -t ran-base:latest -f docker/Dockerfile.base.ubuntu20 ."
+                    sh "$BUILD_COMMAND $BUILD_ARGS build -t ran-base:latest -f docker/Dockerfile.base.ubuntu20 ."
                 }
             }
         }
@@ -216,12 +218,12 @@ EOF
                         if (BUILD_PATCH_URL != "false") {
                         // Build the build image
                         sh "curl -o docker/Dockerfile.build.patch ${BUILD_PATCH_URL}"
-                        sh "$BUILD_COMMAND build -t ${NAME_BUILD_IMAGE} -f docker/Dockerfile.build.patch ."
+                        sh "$BUILD_COMMAND $BUILD_ARGS build -t ${NAME_BUILD_IMAGE} -f docker/Dockerfile.build.patch ."
                         
                         // Build the target image
-                        sh "$BUILD_COMMAND build -t ${NAME_TARGET_IMAGE} -f docker/Dockerfile.gNB.ubuntu20 ."
+                        sh "$BUILD_COMMAND $BUILD_ARGS build -t ${NAME_TARGET_IMAGE} -f docker/Dockerfile.gNB.ubuntu20 ."
                         } else {
-                        sh "$BUILD_COMMAND build -t ${NAME_BUILD_IMAGE} -f docker/Dockerfile.build.ubuntu20 ."
+                        sh "$BUILD_COMMAND $BUILD_ARGS build -t ${NAME_BUILD_IMAGE} -f docker/Dockerfile.build.ubuntu20 ."
                         }
                     }
                 }
@@ -235,12 +237,12 @@ EOF
                         if (GNB_PATCH_URL != "false") {
                         // Build the build image
                         sh "curl -o docker/Dockerfile.build.patch ${BUILD_PATCH_URL}"
-                        sh "$BUILD_COMMAND build -t ${NAME_BUILD_IMAGE} -f docker/Dockerfile.build.patch ."
+                        sh "$BUILD_COMMAND $BUILD_ARGS build -t ${NAME_BUILD_IMAGE} -f docker/Dockerfile.build.patch ."
                         
                         // Build the target image
-                        sh "$BUILD_COMMAND build -t ${NAME_TARGET_IMAGE} -f docker/Dockerfile.gNB.ubuntu20 ."
+                        sh "$BUILD_COMMAND $BUILD_ARGS build -t ${NAME_TARGET_IMAGE} -f docker/Dockerfile.gNB.ubuntu20 ."
                         } else {
-                        sh "$BUILD_COMMAND build -t ${NAME_BUILD_IMAGE} -f docker/Dockerfile.build.ubuntu20 ."
+                        sh "$BUILD_COMMAND $BUILD_ARGS build -t ${NAME_BUILD_IMAGE} -f docker/Dockerfile.build.ubuntu20 ."
                         }
                     }
                 }
@@ -251,10 +253,10 @@ EOF
             steps {
                 container('podman') {
                 // Tag the adapter image for the registry
-                    sh "$BUILD_COMMAND tag ${NAME_TARGET_IMAGE}:latest ${QUAY_REGISTRY}/${QUAY_REPO}/${NAME_GNB_IMAGE}:latest"
+                    sh "$BUILD_COMMAND $BUILD_ARGS tag ${NAME_TARGET_IMAGE}:latest ${QUAY_REGISTRY}/${QUAY_REPO}/${NAME_GNB_IMAGE}:latest"
                     
                     // Push the image to the registry
-                    sh "$BUILD_COMMAND push ${QUAY_REGISTRY}/${QUAY_REPO}/${NAME_GNB_IMAGE}:latest --tls-verify=false"
+                    sh "$BUILD_COMMAND $BUILD_ARGS push ${QUAY_REGISTRY}/${QUAY_REPO}/${NAME_GNB_IMAGE}:latest --tls-verify=false"
                 }
             }
         }
@@ -264,8 +266,8 @@ EOF
         always {
             container('podman') {
                 // Clean up after the build
-                sh "$BUILD_COMMAND logout ${QUAY_REGISTRY}"
-                sh "$BUILD_COMMAND system prune -f"
+                sh "$BUILD_COMMAND $BUILD_ARGS logout ${QUAY_REGISTRY}"
+                sh "$BUILD_COMMAND $BUILD_ARGS system prune -f"
             }
         }
         success {
