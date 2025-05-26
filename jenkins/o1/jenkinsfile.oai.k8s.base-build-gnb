@@ -163,7 +163,7 @@ EOF
                             cat ~/.config/containers/storage.conf
 
                             echo "${REGISTRY_PASSWORD}" | $BUILD_COMMAND login --tls-verify=false \
-                                --storage-driver=vfs \
+                                --storage-driver=overlay \
                                 -u="${REGISTRY_USER}" \
                                 --password-stdin quay.bmw.lab
                         '''
