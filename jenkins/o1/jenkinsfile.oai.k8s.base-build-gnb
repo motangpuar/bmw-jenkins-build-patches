@@ -2,7 +2,7 @@ pipeline {
     
     agent {
         kubernetes {
-            label 'smo-pod'
+            label 'jenkins-build-oai-o1'
             yaml '''
 apiVersion: v1
 kind: Pod
@@ -39,6 +39,12 @@ spec:
       mountPath: /tmp/runtime
     - name: tmp-dir
       mountPath: /tmp
+    resources:
+      requests:
+        memory: "8Gi"
+      limits:
+        memory: "4Gi"
+        cpu: "2000m"
   volumes:
   - name: podman-storage
     emptyDir: {}
