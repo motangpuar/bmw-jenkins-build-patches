@@ -254,7 +254,7 @@ EOF
                     sh "$BUILD_COMMAND $BUILD_ARGS tag ${NAME_TARGET_IMAGE}:latest ${QUAY_REGISTRY}/${QUAY_REPO}/${NAME_GNB_IMAGE}:latest"
                     
                     // Push the image to the registry
-                    sh "$BUILD_COMMAND $BUILD_ARGS push ${QUAY_REGISTRY}/${QUAY_REPO}/${NAME_GNB_IMAGE}:latest --tls-verify=false"
+                    sh "$BUILD_COMMAND $BUILD_ARGS push ${QUAY_REGISTRY}/${QUAY_REPO}/${NAME_GNB_IMAGE} --tls-verify=false"
                 }
             }
         }
