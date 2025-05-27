@@ -189,7 +189,6 @@ spec:
             cleanWs()
         }
     }
-}    parameters {
-        string(name: 'BRANCH', defaultValue: 'master', description: 'Git branch to checkout')
+}
 
 
