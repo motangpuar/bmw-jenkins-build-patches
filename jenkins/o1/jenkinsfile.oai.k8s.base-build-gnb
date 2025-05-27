@@ -238,9 +238,9 @@ EOF
                         if (GNB_PATCH_URL != "") {
                             // Build the target image
                             sh "curl -o docker/Dockerfile.gNB.patch ${GNB_PATCH_URL}"
-                            sh "$BUILD_COMMAND $BUILD_ARGS build -t ${NAME_TARGET_IMAGE} -f docker/Dockerfile.gNB.patch ."
+                            sh "$BUILD_COMMAND $BUILD_ARGS build -t ${NAME_TARGET_IMAGE}:latest -f docker/Dockerfile.gNB.patch ."
                         } else {
-                            sh "$BUILD_COMMAND $BUILD_ARGS build -t ${NAME_BUILD_IMAGE} -f docker/Dockerfile.gNB.ubuntu20 ."
+                            sh "$BUILD_COMMAND $BUILD_ARGS build -t ${NAME_BUILD_IMAGE}:latest -f docker/Dockerfile.gNB.ubuntu20 ."
                         }
                     }
                 }
@@ -251,10 +251,14 @@ EOF
             steps {
                 container('podman') {
                 // Tag the adapter image for the registry
-                    sh "$BUILD_COMMAND $BUILD_ARGS tag ${NAME_TARGET_IMAGE}:latest ${QUAY_REGISTRY}/${QUAY_REPO}/${NAME_GNB_IMAGE}:latest"
+                    sh "$BUILD_COMMAND $BUILD_ARGS tag \
+                        ${NAME_TARGET_IMAGE}:latest \
+                        ${QUAY_REGISTRY}/${QUAY_REPO}/${NAME_GNB_IMAGE}:latest"
                     
                     // Push the image to the registry
-                    sh "$BUILD_COMMAND $BUILD_ARGS push ${QUAY_REGISTRY}/${QUAY_REPO}/${NAME_GNB_IMAGE} --tls-verify=false"
+                    sh "$BUILD_COMMAND $BUILD_ARGS push \
+                        ${QUAY_REGISTRY}/${QUAY_REPO}/${NAME_GNB_IMAGE}:latest \
+                        --tls-verify=false"
                 }
             }
         }
