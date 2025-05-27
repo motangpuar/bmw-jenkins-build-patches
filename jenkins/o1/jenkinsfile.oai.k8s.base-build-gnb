@@ -235,9 +235,9 @@ EOF
             steps {
                 container('podman') {
                     script {
-                        if (GNB_PATCH_URL != "false") {
+                        if (GNB_PATCH_URL != "") {
                             // Build the target image
-                            sh "curl -o docker/Dockerfile.build.patch ${GNB_PATCH_URL}"
+                            sh "curl -o docker/Dockerfile.gNB.patch ${GNB_PATCH_URL}"
                             sh "$BUILD_COMMAND $BUILD_ARGS build -t ${NAME_TARGET_IMAGE} -f docker/Dockerfile.gNB.patch ."
                         } else {
                             sh "$BUILD_COMMAND $BUILD_ARGS build -t ${NAME_BUILD_IMAGE} -f docker/Dockerfile.gNB.ubuntu20 ."
